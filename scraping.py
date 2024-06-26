@@ -5,27 +5,38 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import re
 import time
+from selenium.webdriver.chrome.options import Options
 
-# Initialize WebDriver
-driver = webdriver.Chrome(executable_path=r'C:\Program Files\chromedriver-win64\chromedriver.exe')
+chrome_options = Options()
+chrome_options.add_argument('--ignore-certificate-errors')  # Ignore SSL certificate errors
+chrome_options.add_argument('--ignore-ssl-errors')  # Also ignore SSL errors
 
-# Define a translation table for Turkish characters to English
-turkish_to_english = str.maketrans('ğüşıöçĞÜŞİÖÇ', 'gusiocGUSIOC')
+# Initialize WebDriver with options
+driver = webdriver.Chrome(executable_path=r'C:\Program Files\chromedriver-win64\chromedriver.exe', options=chrome_options)
+
 
 with open('tr_sehirler.txt', 'r', encoding='utf-8') as file:
-    cities = [line.split('\t')[2].strip().lower().translate(turkish_to_english) for line in file.readlines()]
+    cities = [line.strip().lower() for line in file if line.strip()]
 
 all_business_list = []
 
 for city_name in cities:
     print(f"Processing city: {city_name}")
-    page_number = 1
+    page_number = 0
     city_business_list = []
 
     while True:
-        url = f'https://www.bulurum.com/search/gözlükçüler/{city_name}/?page={page_number}'
+        if page_number >= 1:
+            print(f"Scraping page {page_number} of {city_name}...")
+            url = f'https://www.bulurum.com/search/gözlükçüler/{city_name}/?page={page_number}'
+        else:
+            url = f'https://www.bulurum.com/search/gözlükçüler/{city_name}/'
+        print(url)
         driver.get(url)
-        time.sleep(2)  # Wait for JavaScript to load
+        time.sleep(5)  # Increase wait time for JavaScript to load
+
+        # Additional delay to ensure all dynamic content is loaded
+        time.sleep(3)
 
         # Get the page source and parse it with BeautifulSoup
         soup = BeautifulSoup(driver.page_source, "html.parser")
@@ -41,7 +52,7 @@ for city_name in cities:
             name = re.sub(r'\s*\([^)]*\)', '', full_name).strip() if match else full_name
 
             address_parts = address.split(", ")
-            district = address_parts[-2].split(" ")[-1] if len(address_parts) >= 2 else None
+            district = address_parts[-2].split(" ")[-1 if len(address_parts) >= 2 else None]
             province = address_parts[-1] if len(address_parts) >= 2 else None
 
             business_list.append({
